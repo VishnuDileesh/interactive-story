@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interactive Storytelling</title>
-    <link rel="stylesheet" href="static/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
@@ -13,6 +13,8 @@
         <input id="user-input" class="user-input" type="text" placeholder="Start your story...">
         <button class="btn-send" onclick="sendUserInput()">Send</button>
     </div>
+
+    <!-- <script src="{{ url_for('static', filename='js/script.js') }}"></script> -->
     
     <script>
         // Function to handle user input and send it to Flask

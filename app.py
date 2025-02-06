@@ -19,10 +19,7 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 
 @app.route('/get_ai_story', methods=['POST'])
 def generate_story():
-    # Get the JSON data from the request body
     data = request.get_json()
-    
-    # Extract user input from the JSON data
     user_input = data.get('user_input')
 
     if not user_input:
@@ -33,7 +30,7 @@ def generate_story():
     
     # If the user chooses to exit, clear history and stop further interaction
     if user_input.lower() == 'exit':
-        session['history'] = []  # Clear history to stop the conversation
+        session['history'] = []
         return jsonify({
             'story': 'You have exited the story. Thank you for playing!',
             'choices': []
@@ -41,14 +38,27 @@ def generate_story():
 
     # Generate the story content based on user input
     ai_response, updated_history = generate_story_logic(user_input, history)
+    
+    # Parse the response to separate story and choices
+    try:
+        # Split the response at "CHOICES:" if present
+        if "CHOICES:" in ai_response:
+            story_part, choices_part = ai_response.split("CHOICES:")
+            choices = [choice.strip() for choice in choices_part.split("\n") if choice.strip()]
+        else:
+            story_part = ai_response
+            choices = ['Continue', 'Change direction', 'Exit']
+    except Exception:
+        story_part = ai_response
+        choices = ['Continue', 'Change direction', 'Exit']
 
     # Update session history
     session['history'] = updated_history
 
     # Return the AI-generated story content
     return jsonify({
-        'story': ai_response,
-        'choices': ['Continue', 'Change action', 'Exit']  # Choices to show
+        'story': story_part.strip(),
+        'choices': choices
     })
 
 
@@ -56,15 +66,34 @@ def generate_story():
 def generate_story_logic(user_input, history=None):
     if history is None:
         history = []
-
-    # Add the current user input to the history
-    history.append(f"User: {user_input}")
-
-    # Generate story content based on the user's input and history
-    prompt = "\n".join(history)  # Combine history to maintain context
-
-    # Call the Gemini model to generate the next part of the story
-    response = model.generate_content(prompt)
+        # Initial story prompt when starting fresh
+        system_prompt = """You are an interactive storyteller. Create engaging, family-friendly stories 
+        with clear choices for the reader. Each response should:
+        1. Be 2-3 paragraphs long
+        2. End with 3 clear choices for what could happen next
+        3. Keep the story coherent with previous choices
+        
+        Format your response like this:
+        [Story content here]
+        
+        CHOICES:
+        1. [First choice]
+        2. [Second choice]
+        3. [Third choice]"""
+        
+        initial_prompt = f"{system_prompt}\n\nCreate the beginning of a story based on: {user_input}"
+        response = model.generate_content(initial_prompt)
+    else:
+        # For continuing the story, include context and previous choices
+        context = "\n".join(history)
+        continuation_prompt = f"""Previous story context:
+        {context}
+        
+        User's choice: {user_input}
+        
+        Continue the story based on this choice. Remember to end with 3 new choices."""
+        
+        response = model.generate_content(continuation_prompt)
 
     # Add the AI's response to the history
     ai_response = response.text
